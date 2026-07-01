@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Final Loading Plan Analyzer</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#f0f4f8;color:#1a202c;font-size:13px}
+
+header{background:#1a365d;color:white;padding:13px 22px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+header h1{font-size:16px;font-weight:700}
+header span{font-size:11px;opacity:.65}
+
+.main{padding:14px 18px;max-width:1750px;margin:0 auto}
+
+/* ── Input panels ── */
+.input-section{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+@media(max-width:860px){.input-section{grid-template-columns:1fr}}
+.panel{background:white;border-radius:9px;padding:13px 15px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.panel-title{font-size:11px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.drop-zone{border:2px dashed #90cdf4;background:#ebf8ff;border-radius:7px;padding:14px;text-align:center;cursor:pointer;transition:.2s}
+.drop-zone:hover,.drop-zone.dragover{border-color:#3182ce;background:#bee3f8}
+.drop-zone p{color:#2b6cb0;font-size:12px;margin-bottom:2px}.drop-zone small{color:#718096;font-size:10px}
+.drop-zone input[type=file]{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px;max-height:70px;overflow-y:auto}
+.chip{padding:2px 7px;border-radius:10px;font-size:10px;display:flex;align-items:center;gap:3px;white-space:nowrap}
+.chip-file{background:#2b6cb0;color:white}.chip-folder{background:#276749;color:white}.chip-skip{background:#c53030;color:white}
+.chip button{background:none;border:none;color:white;cursor:pointer;font-size:11px;padding:0;line-height:1}
+.folder-row{display:flex;gap:6px;align-items:center;margin-bottom:7px}
+.folder-input{flex:1;border:1px solid #cbd5e0;border-radius:5px;padding:5px 8px;font-size:11px;background:#f7fafc;font-family:monospace;color:#4a5568}
+.folder-status{font-size:11px;color:#718096}
+.folder-status.ok{color:#276749}.folder-status.err{color:#c53030}
+
+/* ── VVD Panel ── */
+.vvd-panel{background:white;border-radius:9px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:10px;overflow:hidden}
+.vvd-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;user-select:none;border-bottom:1px solid #edf2f7}
+.vvd-header:hover{background:#f7fafc}
+.vvd-title{font-size:11px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.5px;flex:1}
+.vvd-quick{display:flex;gap:5px;align-items:center}
+.vvd-body{padding:10px 14px;display:none}
+.vvd-body.open{display:block}
+.vvd-grid{display:flex;flex-wrap:wrap;gap:5px;max-height:130px;overflow-y:auto;padding:4px 0}
+.vvd-item{display:flex;align-items:center;gap:5px;padding:4px 9px;border:1px solid #e2e8f0;border-radius:16px;cursor:pointer;transition:.15s;white-space:nowrap}
+.vvd-item:hover{border-color:#90cdf4;background:#ebf8ff}
+.vvd-item.checked{background:#2b6cb0;border-color:#2b6cb0;color:white}
+.vvd-item input[type=checkbox]{cursor:pointer;accent-color:#2b6cb0}
+.vvd-label{font-size:11px;font-weight:600}
+.vvd-date{font-size:10px;opacity:.7}
+.vvd-vessel{font-size:10px;opacity:.7;font-style:italic}
+.vvd-empty{color:#a0aec0;font-size:12px;padding:8px}
+.toggle-arrow{font-size:10px;transition:.2s}
+.toggle-arrow.open{transform:rotate(180deg)}
+
+/* ── Filter bar ── */
+.filter-bar{background:white;border-radius:9px;padding:11px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:10px}
+.filter-bar-title{font-size:11px;font-weight:700;color:#4a5568;text-transform:uppercase;letter-spacing:.5px;margin-bottom:9px}
+.filter-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:7px;margin-bottom:9px}
+.fi{display:flex;flex-direction:column;gap:3px}
+.fi label{font-size:10px;color:#718096;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.fi input,.fi select{border:1px solid #cbd5e0;border-radius:5px;padding:5px 7px;font-size:12px;background:#f7fafc;transition:border-color .15s}
+.fi input:focus,.fi select:focus{outline:none;border-color:#3182ce;background:white}
+.fi input::placeholder{color:#a0aec0}
+.filter-actions{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.active-tags{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.tag{background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:600}
+
+/* ── Buttons ── */
+.btn{padding:5px 13px;border-radius:5px;border:none;cursor:pointer;font-size:12px;font-weight:600;transition:.15s;white-space:nowrap}
+.btn-sm{padding:3px 8px;font-size:10px;border-radius:4px}
+.btn-xs{padding:2px 6px;font-size:10px;border-radius:4px}
+.btn-blue{background:#3182ce;color:white}.btn-blue:hover{background:#2b6cb0}
+.btn-green{background:#38a169;color:white}.btn-green:hover{background:#276749}
+.btn-gray{background:#e2e8f0;color:#4a5568}.btn-gray:hover{background:#cbd5e0}
+.btn-orange{background:#dd6b20;color:white}.btn-orange:hover{background:#c05621}
+.btn-red{background:#c53030;color:white}.btn-red:hover{background:#9b2c2c}
+
+/* ── Summary cards ── */
+.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px;margin-bottom:10px}
+.card{background:white;border-radius:8px;padding:10px 13px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-left:4px solid #3182ce}
+.card.high{border-color:#e53e3e}.card.mid{border-color:#dd6b20}.card.low{border-color:#38a169}
+.card.avg{border-color:#805ad5}.card.tot{border-color:#0bc5ea}
+.card-label{font-size:10px;color:#718096;font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+.card-value{font-size:19px;font-weight:700;margin-top:3px}
+.card-sub{font-size:10px;color:#a0aec0;margin-top:1px}
+
+/* ── Table ── */
+.table-wrap{background:white;border-radius:9px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:auto}
+.table-topbar{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-bottom:1px solid #edf2f7}
+.table-topbar span{font-size:11px;color:#718096}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:#2d3748;color:white;padding:7px 9px;text-align:center;font-weight:600;font-size:11px;position:sticky;top:0;z-index:2;cursor:pointer;user-select:none;white-space:nowrap}
+thead th:hover{background:#4a5568}
+thead th.sorted{background:#2c5282}
+.sa{margin-left:3px;font-size:9px;opacity:.5}
+thead th.sorted .sa{opacity:1}
+tbody tr.r20{background:#fff;border-top:2px solid #bee3f8}
+tbody tr.r40{background:#fffaf0}
+tbody tr.rtot{background:#edf2f7;font-weight:700;border-bottom:2px solid #c6f6d5}
+tbody tr:hover td{filter:brightness(.97)}
+tbody td{padding:6px 8px;text-align:center;border-right:1px solid #edf2f7;vertical-align:middle}
+tbody td.tl{text-align:left}
+tbody td.sc{background:#f7fafc!important;border-right:2px solid #bee3f8;font-weight:600;color:#2b4d7a}
+.szb{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700}
+.sz20{background:#ebf8ff;color:#2b6cb0;border:1px solid #bee3f8}
+.sz40{background:#fffaf0;color:#c05621;border:1px solid #feebc8}
+.szall{background:#f0fff4;color:#276749;border:1px solid #c6f6d5}
+.bdg{display:inline-block;padding:1px 6px;border-radius:10px;font-size:10px;font-weight:600}
+.bdg-e{background:#faf5ff;color:#6b46c1;border:1px solid #d6bcfa} /* 공컨 배지 */
+.bh{background:#fff5f5;color:#c53030;border:1px solid #fed7d7}
+.bm{background:#fffaf0;color:#c05621;border:1px solid #feebc8}
+.bl{background:#f0fff4;color:#276749;border:1px solid #c6f6d5}
+.wbar{display:flex;height:5px;border-radius:3px;overflow:hidden;min-width:55px;margin-top:2px}
+.bh2{background:#e53e3e}.bm2{background:#ed8936}.bl2{background:#48bb78}
+.tw{color:#553c9a;font-weight:700}
+.dash{color:#cbd5e0}
+tfoot td{background:#1a365d;color:white;padding:7px 9px;text-align:center;font-weight:600;font-size:11px;position:sticky;bottom:0}
+.empty{text-align:center;padding:50px;color:#a0aec0}
+.skipped-note{background:#fff5f5;border:1px solid #fed7d7;border-radius:6px;padding:7px 12px;font-size:11px;color:#c53030;margin-top:7px}
+
+/* ── Progress ── */
+.prog-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:999}
+.prog-box{background:white;border-radius:10px;padding:22px 30px;text-align:center;min-width:200px}
+.prog-box p{margin-top:9px;color:#4a5568;font-size:13px}
+.spinner{width:30px;height:30px;border:3px solid #e2e8f0;border-top-color:#3182ce;border-radius:50%;animation:spin .8s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+    <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+  </svg>
+  <div>
+    <h1>Final Loading Plan Analyzer</h1>
+    <span>BAPLIE EDI · VVD / POL→POD · 20'/40' 중량 분석 · 컨테이너번호 검증 자동 배제</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- Input -->
+  <div class="input-section">
+    <div class="panel">
+      <div class="panel-title">📄 파일 업로드</div>
+      <div class="drop-zone" id="dropZone">
+        <p>EDI 파일을 드래그하거나 클릭</p>
+        <small>여러 파일 동시 선택 · .EDI / .ASC 형식</small>
+        <input type="file" id="fileInput" accept=".edi,.EDI,.asc,.ASC" multiple>
+      </div>
+      <div class="chips" id="fileChips"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">📂 폴더 연결 <span style="font-weight:400;color:#a0aec0;font-size:10px">(Chrome/Edge 86+)</span></div>
+      <div class="folder-row">
+        <input type="text" class="folder-input" id="folderPathDisplay" placeholder="연결된 폴더" readonly>
+        <button class="btn btn-green btn-sm" onclick="selectFolder()">폴더 선택</button>
+        <button class="btn btn-gray btn-sm" onclick="refreshFolder()" id="btnRefresh" style="display:none">↺ 새로고침</button>
+      </div>
+      <div class="folder-status" id="folderStatus">폴더를 선택하면 EDI 파일을 자동으로 읽습니다</div>
+      <div class="chips" id="folderChips"></div>
+      <div id="skipNote" style="display:none" class="skipped-note"></div>
+    </div>
+  </div>
+
+  <!-- VVD Panel -->
+  <div class="vvd-panel" id="vvdPanel" style="display:none">
+    <div class="vvd-header" onclick="toggleVVDPanel()">
+      <div class="vvd-title">🚢 항차(VVD) 선택 — <span id="vvdSelCount" style="color:#2b6cb0">0</span>개 선택 중</div>
+      <div class="vvd-quick" onclick="event.stopPropagation()">
+        <button class="btn btn-gray btn-xs" onclick="selectRecentVVDs(5)">최근 5개</button>
+        <button class="btn btn-gray btn-xs" onclick="selectRecentVVDs(10)">최근 10개</button>
+        <button class="btn btn-blue btn-xs" onclick="selectAllVVDs(true)">전체 선택</button>
+        <button class="btn btn-gray btn-xs" onclick="selectAllVVDs(false)">전체 해제</button>
+        <button class="btn btn-blue btn-sm" onclick="applyFilters()">적용</button>
+      </div>
+      <span class="toggle-arrow" id="vvdArrow">▼</span>
+    </div>
+    <div class="vvd-body" id="vvdBody">
+      <div class="vvd-grid" id="vvdGrid"></div>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="filter-bar" id="filterBar" style="display:none">
+    <div class="filter-bar-title">🔍 필터</div>
+    <div class="filter-grid">
+      <div class="fi">
+        <label>POL</label>
+        <input type="text" id="fPOL" list="dl-pol" placeholder="출항항 코드..." autocomplete="off">
+        <datalist id="dl-pol"></datalist>
+      </div>
+      <div class="fi">
+        <label>POD</label>
+        <input type="text" id="fPOD" list="dl-pod" placeholder="입항항 코드..." autocomplete="off">
+        <datalist id="dl-pod"></datalist>
+      </div>
+      <div class="fi">
+        <label>선박명</label>
+        <input type="text" id="fVessel" list="dl-vessel" placeholder="선박명 검색..." autocomplete="off">
+        <datalist id="dl-vessel"></datalist>
+      </div>
+      <div class="fi">
+        <label>사이즈</label>
+        <select id="fSize">
+          <option value="">전체 (20'+40')</option>
+          <option value="20">20'만</option>
+          <option value="40">40'만</option>
+        </select>
+      </div>
+      <div class="fi">
+        <label>기간 (EDI 날짜) From</label>
+        <input type="date" id="fDateFrom">
+      </div>
+      <div class="fi">
+        <label>기간 To</label>
+        <input type="date" id="fDateTo">
+      </div>
+      <div class="fi">
+        <label>그룹 기준</label>
+        <select id="groupBy">
+          <option value="vvd_pol_pod">VVD + POL→POD</option>
+          <option value="vessel_vvd">선박 + VVD</option>
+          <option value="pol_pod">POL→POD</option>
+        </select>
+      </div>
+    </div>
+    <div class="filter-actions">
+      <button class="btn btn-blue" onclick="applyFilters()">적용</button>
+      <button class="btn btn-gray" onclick="resetFilters()">초기화</button>
+      <button class="btn btn-orange" onclick="exportCSV()">CSV 내보내기</button>
+      <div class="active-tags" id="activeTags"></div>
+      <span id="fileCount" style="font-size:11px;color:#718096;margin-left:4px"></span>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="summary" id="summary" style="display:none">
+    <div class="card"><div class="card-label">평균 VAN/항차</div><div class="card-value" id="s-van">0</div><div class="card-sub" id="s-teu-sub">0 TEU</div></div>
+    <div class="card tot"><div class="card-label">평균 총중량/항차</div><div class="card-value" id="s-totalw">0</div><div class="card-sub">톤</div></div>
+    <div class="card avg"><div class="card-label">평균 중량/VAN</div><div class="card-value" id="s-avg">0</div><div class="card-sub">톤</div></div>
+    <div class="card high"><div class="card-label">고중량 ≥24t</div><div class="card-value" id="s-high">0</div><div class="card-sub" id="s-high-pct">0% of total</div></div>
+    <div class="card mid"><div class="card-label">중중량 16~24t</div><div class="card-value" id="s-mid">0</div><div class="card-sub" id="s-mid-pct">0%</div></div>
+    <div class="card low"><div class="card-label">저중량 &lt;16t</div><div class="card-value" id="s-low">0</div><div class="card-sub" id="s-low-pct">0%</div></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap" id="tableWrap">
+    <div class="empty">EDI 파일을 업로드하거나 폴더를 연결하면 결과가 표시됩니다</div>
+  </div>
+
+</div>
+
+<div class="prog-overlay" id="progOverlay" style="display:none">
+  <div class="prog-box"><div class="spinner"></div><p id="progText">처리 중...</p></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════
+let allContainers = [];  // parsed containers from valid files
+let skippedFiles  = [];  // filenames that were excluded (no real container numbers)
+let loadedFiles   = new Map(); // name→text (file picker)
+let folderFiles   = new Map(); // name→text (folder)
+let folderHandle  = null;
+let vvdState      = {};  // vvd → { checked, date, vessel }
+let sortState     = { col:'vvd', dir:1 };
+
+// ═══════════════════════════════════════════════
+//  FILE PICKER
+// ═══════════════════════════════════════════════
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+dropZone.addEventListener('click', ()=>fileInput.click());
+dropZone.addEventListener('dragover', e=>{e.preventDefault();dropZone.classList.add('dragover')});
+dropZone.addEventListener('dragleave', ()=>dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e=>{e.preventDefault();dropZone.classList.remove('dragover');handleUploadedFiles([...e.dataTransfer.files])});
+fileInput.addEventListener('change', e=>handleUploadedFiles([...e.target.files]));
+
+async function handleUploadedFiles(files) {
+  showProg('파일 읽는 중...');
+  for (const f of files) {
+    const ext = f.name.toLowerCase();
+    if (ext.endsWith('.edi') || ext.endsWith('.asc')) loadedFiles.set(f.name, await f.text());
+  }
+  hideProg();
+  rebuildAll();
+  renderFileChips();
+}
+function removeUploadedFile(name) {
+  loadedFiles.delete(name);
+  rebuildAll();
+  renderFileChips();
+}
+function renderFileChips() {
+  document.getElementById('fileChips').innerHTML =
+    [...loadedFiles.keys()].map(n=>`<div class="chip chip-file">📄 ${n}<button onclick="removeUploadedFile(${JSON.stringify(n)})">×</button></div>`).join('');
+}
+
+// ═══════════════════════════════════════════════
+//  FOLDER
+// ═══════════════════════════════════════════════
+async function selectFolder() {
+  if (!window.showDirectoryPicker) {
+    alert('이 브라우저는 폴더 접근을 지원하지 않습니다. Chrome 또는 Edge를 사용해주세요.');
+    return;
+  }
+  try {
+    folderHandle = await window.showDirectoryPicker({mode:'read'});
+    await readFolder();
+  } catch(e) {
+    if (e.name !== 'AbortError') setFolderStatus('오류: '+e.message, 'err');
+  }
+}
+async function refreshFolder() { if (folderHandle) await readFolder(); }
+
+async function readFolder() {
+  showProg('폴더 읽는 중...');
+  folderFiles.clear();
+  let n=0;
+  for await (const entry of folderHandle.values()) {
+    const ext = entry.name.toLowerCase();
+    if (entry.kind==='file' && (ext.endsWith('.edi') || ext.endsWith('.asc'))) {
+      const file = await entry.getFile();
+      folderFiles.set(entry.name, await file.text());
+      n++;
+      document.getElementById('progText').textContent = `읽는 중... ${n}개`;
+    }
+  }
+  document.getElementById('folderPathDisplay').value = folderHandle.name;
+  document.getElementById('btnRefresh').style.display = '';
+  hideProg();
+  rebuildAll();
+  renderFolderChips();
+}
+function setFolderStatus(msg, cls) {
+  const el = document.getElementById('folderStatus');
+  el.textContent = msg; el.className = 'folder-status'+(cls?' '+cls:'');
+}
+function renderFolderChips() {
+  const valid = [...folderFiles.keys()].filter(n=>!skippedFiles.includes(n));
+  document.getElementById('folderChips').innerHTML =
+    valid.map(n=>`<div class="chip chip-folder">📂 ${n}</div>`).join('');
+  setFolderStatus(`✓ ${valid.length}개 로드 (${skippedFiles.filter(n=>folderFiles.has(n)).length}개 배제)`, valid.length?'ok':'');
+}
+
+// ═══════════════════════════════════════════════
+//  FORMAT DETECTION & VALIDATION
+// ═══════════════════════════════════════════════
+function detectFormat(text) {
+  const head = text.slice(0, 300);
+  if (head.includes('UNB+') || head.includes('UNH+')) return 'edi';
+  if (head.includes('$604') || /^\$\d{3}/.test(head)) return 'asc';
+  return 'unknown';
+}
+
+function isRealConNum(num) {
+  // Standard: 4 uppercase letters + 7 digits (OOOCNNNNNND)
+  return /^[A-Z]{4}\d{7}$/.test(num);
+}
+
+function isFinalLoadingPlan(text) {
+  const fmt = detectFormat(text);
+
+  if (fmt === 'edi') {
+    const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n')
+      .split(/'\s*\n?|\n/).map(l=>l.trim()).filter(Boolean);
+    let eqdCount = 0;
+    for (const line of lines) {
+      if (!line.startsWith('EQD+CN+')) continue;
+      eqdCount++;
+      const seg = line.split('+');
+      const num = (seg[2]||'').trim();
+      if (!isRealConNum(num)) return false;
+    }
+    return eqdCount > 0;
+  }
+
+  if (fmt === 'asc') {
+    const lines = text.split(/\r?\n/);
+    let total = 0, valid = 0;
+    for (const line of lines) {
+      if (line.startsWith('$') || line.trim().length < 18) continue;
+      const conNum = line.substring(7, 18).trim();
+      if (!conNum || !/^[A-Z]/.test(conNum)) continue;
+      total++;
+      if (isRealConNum(conNum)) valid++;
+      else return false; // any invalid = planning file
+    }
+    return total > 0;
+  }
+
+  return false;
+}
+
+function parseFile(text, filename) {
+  const fmt = detectFormat(text);
+  if (fmt === 'edi') return parseEDI(text, filename);
+  if (fmt === 'asc') return parseASC(text, filename);
+  return [];
+}
+
+// ═══════════════════════════════════════════════
+//  EDI PARSER
+// ═══════════════════════════════════════════════
+function parseDateFromEDI(text) {
+  // UNB+...:YYMMDD:HHMM+...
+  const m = text.match(/UNB\+[^']*?\+(\d{6}):\d{4}/);
+  if (m) {
+    const d = m[1]; // YYMMDD
+    return new Date(2000+parseInt(d.slice(0,2)), parseInt(d.slice(2,4))-1, parseInt(d.slice(4,6)));
+  }
+  // fallback: DTM+137:YYYYMMDD...
+  const m2 = text.match(/DTM\+137:(\d{8})/);
+  if (m2) {
+    const d = m2[1];
+    return new Date(parseInt(d.slice(0,4)), parseInt(d.slice(4,6))-1, parseInt(d.slice(6,8)));
+  }
+  return null;
+}
+
+function sizeFromISO(iso) {
+  if (!iso) return '20';
+  return (iso[0]==='4'||iso[0]==='L') ? '40' : '20';
+}
+
+// EDI: empty container 추정 (ASC는 F/E 플래그로 직접 식별)
+// 20' 공컨 tare ≈ 2.2t, 40' ≈ 3.8~4.5t → 여유 포함 임계값 설정
+function inferStatus(weight_kg, size) {
+  if (!weight_kg) return 'F';
+  if (size === '20' && weight_kg <= 4000) return 'E';
+  if (size === '40' && weight_kg <= 6000) return 'E';
+  return 'F';
+}
+
+// ═══════════════════════════════════════════════
+//  ASC PARSER
+// ═══════════════════════════════════════════════
+function parseASC(text, filename) {
+  const lines = text.split(/\r?\n/);
+  let vessel = '', vvd = '', date = null;
+  const containers = [];
+
+  for (const line of lines) {
+    // ── Header: $604NSMC/STARSHIP MERCURY    /2604S/user/POD:SHA/20260509/...
+    if (line.startsWith('$604')) {
+      const parts = line.substring(4).split('/');
+      if (parts[1]) vessel = parts[1].trim();
+      if (parts[2]) vvd    = parts[2].trim();
+      // Date: 8-digit YYYYMMDD field (usually index 5)
+      for (let i = 3; i < parts.length; i++) {
+        const d = parts[i].trim();
+        if (/^\d{8}$/.test(d)) {
+          date = new Date(parseInt(d.slice(0,4)), parseInt(d.slice(4,6))-1, parseInt(d.slice(6,8)));
+          break;
+        }
+      }
+      continue;
+    }
+    // Skip other $ lines
+    if (line.startsWith('$') || line.trim().length < 25) continue;
+
+    // Container number: fixed position 7-17 (11 chars)
+    const conNum = line.substring(7, 18).trim();
+    if (!isRealConNum(conNum)) continue;
+
+    // POL+POD: last 10 non-space chars (XXXXX XXXXX format)
+    const trimmed = line.replace(/\s+$/, '');
+    if (trimmed.length < 10) continue;
+    const polpod = trimmed.slice(-10);
+    const pol = polpod.slice(0, 5).trim();
+    const pod = polpod.slice(5).trim();
+    if (!pol || !pod || pol.length < 3 || pod.length < 3) continue;
+
+    // ISO type + weight: e.g. "42G0215F" → ISO=42G0, weight=215×100 KG, F=full / E=empty
+    const isoMatch = line.match(/([0-9A-Z]{4})(\d{3})([FE])/);
+    if (!isoMatch) continue;
+    const iso      = isoMatch[1];
+    const weight_kg = parseInt(isoMatch[2]) * 100;
+    const size     = sizeFromISO(iso);
+    const status   = isoMatch[3]; // 'F' = full (실화물), 'E' = empty (공컨)
+
+    if (weight_kg > 0) {
+      containers.push({ vessel, vvd, pol, pod, weight_kg, size, date, file: filename, status });
+    }
+  }
+  return containers;
+}
+
+function parseEDI(text, filename) {
+  const lines = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n')
+    .split(/'\s*\n?|\n/).map(l=>l.trim()).filter(Boolean);
+  let vessel='', vvd='';
+  const date = parseDateFromEDI(text);
+  const containers=[];
+  let inBlock=false, cur={};
+
+  for (const line of lines) {
+    const seg = line.split('+');
+    const tag = seg[0];
+    if (tag==='TDT') {
+      vvd = (seg[2]||'').trim();
+      if (seg[8]) { const p=seg[8].split(':'); vessel=p[p.length-1].trim(); }
+    }
+    else if (tag==='LOC') {
+      const t=seg[1], code=seg[2]?seg[2].split(':')[0]:'';
+      if (t==='147') {
+        if (inBlock && cur.pol && cur.pod && cur.weight_kg!=null)
+          containers.push({...cur, vessel, vvd, date, file:filename,
+            status: inferStatus(cur.weight_kg, cur.size||'20')});
+        cur={}; inBlock=true;
+      }
+      else if (t==='9'  && inBlock) cur.pol=code;
+      else if (t==='11' && inBlock) cur.pod=code;
+    }
+    else if (tag==='MEA' && inBlock) {
+      const m=(seg[3]||seg[2]||'').match(/KGM:(\d+)/i);
+      if (m) cur.weight_kg=parseInt(m[1],10);
+    }
+    else if (tag==='EQD' && inBlock) {
+      cur.size = sizeFromISO((seg[3]||'').trim());
+    }
+  }
+  if (inBlock && cur.pol && cur.pod && cur.weight_kg!=null)
+    containers.push({...cur, vessel, vvd, date, file:filename,
+      status: inferStatus(cur.weight_kg, cur.size||'20')});
+  return containers;
+}
+
+// ═══════════════════════════════════════════════
+//  REBUILD
+// ═══════════════════════════════════════════════
+function rebuildAll() {
+  showProg('데이터 분석 중...');
+  allContainers=[]; skippedFiles=[];
+  const all = new Map([...loadedFiles, ...folderFiles]);
+
+  for (const [name, text] of all.entries()) {
+    if (!isFinalLoadingPlan(text)) { skippedFiles.push(name); continue; }
+    allContainers.push(...parseFile(text, name));
+  }
+
+  // Update skip note
+  const skipNote = document.getElementById('skipNote');
+  if (skippedFiles.length) {
+    skipNote.style.display='';
+    skipNote.textContent = `⚠ 컨테이너번호 없는 파일 ${skippedFiles.length}개 자동 배제: ${skippedFiles.join(', ')}`;
+  } else {
+    skipNote.style.display='none';
+  }
+
+  if (!allContainers.length) {
+    hideProg();
+    document.getElementById('vvdPanel').style.display='none';
+    document.getElementById('filterBar').style.display='none';
+    document.getElementById('summary').style.display='none';
+    document.getElementById('tableWrap').innerHTML='<div class="empty">유효한 파이널 로딩 플랜 파일이 없습니다</div>';
+    return;
+  }
+
+  buildVVDState();
+  populateFilters();
+  applyFilters();
+  hideProg();
+}
+
+// ═══════════════════════════════════════════════
+//  VVD STATE
+// ═══════════════════════════════════════════════
+function buildVVDState() {
+  // Collect unique VVDs with their best date
+  const map = new Map();
+  for (const c of allContainers) {
+    if (!map.has(c.vvd)) map.set(c.vvd, {vessel:c.vessel, date:c.date, checked:true});
+    else {
+      // Use earliest date if multiple
+      const ex = map.get(c.vvd);
+      if (c.date && (!ex.date || c.date < ex.date)) ex.date = c.date;
+    }
+  }
+  // Merge with existing checked state (preserve user's selections)
+  const newState = {};
+  for (const [vvd, info] of map.entries()) {
+    newState[vvd] = {
+      vessel: info.vessel,
+      date:   info.date,
+      checked: vvdState[vvd] !== undefined ? vvdState[vvd].checked : true
+    };
+  }
+  vvdState = newState;
+  renderVVDPanel();
+}
+
+function renderVVDPanel() {
+  const panel = document.getElementById('vvdPanel');
+  const grid  = document.getElementById('vvdGrid');
+  panel.style.display = '';
+
+  // Sort VVDs by date desc, then alpha
+  const sorted = Object.entries(vvdState).sort((a,b)=>{
+    const da=a[1].date, db=b[1].date;
+    if (da&&db) return db-da;
+    if (da) return -1; if (db) return 1;
+    return b[0].localeCompare(a[0]);
+  });
+
+  grid.innerHTML = sorted.map(([vvd,info])=>{
+    const dateStr = info.date ? info.date.toLocaleDateString('ko-KR',{month:'2-digit',day:'2-digit'}) : '';
+    const cls = info.checked ? 'vvd-item checked' : 'vvd-item';
+    return `<div class="${cls}" onclick="toggleVVD('${vvd}')">
+      <input type="checkbox" ${info.checked?'checked':''} onchange="toggleVVD('${vvd}')" onclick="event.stopPropagation()">
+      <span class="vvd-label">${vvd}</span>
+      ${dateStr?`<span class="vvd-date">${dateStr}</span>`:''}
+      <span class="vvd-vessel">${info.vessel||''}</span>
+    </div>`;
+  }).join('') || '<div class="vvd-empty">VVD 없음</div>';
+
+  updateVVDCount();
+}
+
+function toggleVVD(vvd) {
+  if (vvdState[vvd]) vvdState[vvd].checked = !vvdState[vvd].checked;
+  renderVVDPanel();
+}
+function selectAllVVDs(val) {
+  Object.keys(vvdState).forEach(v=>vvdState[v].checked=val);
+  renderVVDPanel();
+}
+function selectRecentVVDs(n) {
+  const sorted = Object.entries(vvdState).sort((a,b)=>{
+    const da=a[1].date, db=b[1].date;
+    if (da&&db) return db-da;
+    if (da) return -1; if (db) return 1;
+    return b[0].localeCompare(a[0]);
+  });
+  sorted.forEach(([vvd],i)=>vvdState[vvd].checked = i<n);
+  renderVVDPanel();
+  applyFilters();
+}
+function updateVVDCount() {
+  const n = Object.values(vvdState).filter(v=>v.checked).length;
+  document.getElementById('vvdSelCount').textContent = n;
+}
+function toggleVVDPanel() {
+  const body = document.getElementById('vvdBody');
+  const arrow = document.getElementById('vvdArrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
+}
+
+// ═══════════════════════════════════════════════
+//  POPULATE FILTERS
+// ═══════════════════════════════════════════════
+function uniq(arr){ return [...new Set(arr)].filter(Boolean).sort(); }
+function fillDL(id, opts) {
+  document.getElementById(id).innerHTML = opts.map(o=>`<option value="${o}">`).join('');
+}
+
+function populateFilters() {
+  fillDL('dl-pol',    uniq(allContainers.map(c=>c.pol)));
+  fillDL('dl-pod',    uniq(allContainers.map(c=>c.pod)));
+  fillDL('dl-vessel', uniq(allContainers.map(c=>c.vessel)));
+  document.getElementById('filterBar').style.display='';
+  document.getElementById('summary').style.display='grid';
+  document.getElementById('fileCount').textContent =
+    `${new Map([...loadedFiles,...folderFiles]).size - skippedFiles.length}개 파일 · ${allContainers.length} VAN`;
+}
+
+function resetFilters() {
+  ['fPOL','fPOD','fVessel','fDateFrom','fDateTo'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('fSize').value='';
+  document.getElementById('groupBy').value='vvd_pol_pod';
+  selectAllVVDs(true);
+  applyFilters();
+}
+
+// ═══════════════════════════════════════════════
+//  APPLY FILTERS
+// ═══════════════════════════════════════════════
+function applyFilters() {
+  updateVVDCount();
+  const fPOL    = document.getElementById('fPOL').value.trim().toUpperCase();
+  const fPOD    = document.getElementById('fPOD').value.trim().toUpperCase();
+  const fVessel = document.getElementById('fVessel').value.trim().toUpperCase();
+  const fSize   = document.getElementById('fSize').value;
+  const fFrom   = document.getElementById('fDateFrom').value ? new Date(document.getElementById('fDateFrom').value) : null;
+  const fTo     = document.getElementById('fDateTo').value   ? new Date(document.getElementById('fDateTo').value)   : null;
+  if (fTo) fTo.setHours(23,59,59);
+  const groupBy = document.getElementById('groupBy').value;
+
+  const checkedVVDs = new Set(Object.entries(vvdState).filter(([,v])=>v.checked).map(([k])=>k));
+
+  let data = allContainers;
+  data = data.filter(c => checkedVVDs.has(c.vvd));
+  if (fPOL)    data = data.filter(c=>c.pol.includes(fPOL));
+  if (fPOD)    data = data.filter(c=>c.pod.includes(fPOD));
+  if (fVessel) data = data.filter(c=>c.vessel.toUpperCase().includes(fVessel));
+  if (fSize)   data = data.filter(c=>c.size===fSize);
+  if (fFrom)   data = data.filter(c=>c.date && c.date>=fFrom);
+  if (fTo)     data = data.filter(c=>c.date && c.date<=fTo);
+
+  // Active tags
+  const tags = [];
+  if (checkedVVDs.size < Object.keys(vvdState).length) tags.push(`VVD: ${checkedVVDs.size}개 선택`);
+  if (fPOL)    tags.push('POL: '+fPOL);
+  if (fPOD)    tags.push('POD: '+fPOD);
+  if (fVessel) tags.push('선박: '+fVessel);
+  if (fSize)   tags.push(fSize+"' only");
+  if (fFrom||fTo) tags.push(`기간: ${fFrom?fFrom.toLocaleDateString('ko-KR'):''} ~ ${fTo?fTo.toLocaleDateString('ko-KR'):''}`);
+  document.getElementById('activeTags').innerHTML = tags.map(t=>`<span class="tag">${t}</span>`).join('');
+
+  const groups = sortGroups(groupData(data, groupBy));
+  renderSummary(data, groups);
+  renderTable(groups, groupBy);
+}
+
+// Event listeners
+['fPOL','fPOD','fVessel','fDateFrom','fDateTo'].forEach(id=>{
+  document.getElementById(id).addEventListener('keydown',e=>{if(e.key==='Enter')applyFilters()});
+  document.getElementById(id).addEventListener('change',applyFilters);
+});
+document.getElementById('fSize').addEventListener('change',applyFilters);
+document.getElementById('groupBy').addEventListener('change',applyFilters);
+
+// ═══════════════════════════════════════════════
+//  STATS & GROUPING
+// ═══════════════════════════════════════════════
+function calcStats(rows) {
+  if (!rows.length) return null;
+  const total=rows.length, teu=rows.reduce((s,r)=>s+(r.size==='40'?2:1),0);
+  const sumKg=rows.reduce((s,r)=>s+r.weight_kg,0);
+  const high=rows.filter(r=>r.weight_kg>=24000).length;
+  const mid =rows.filter(r=>r.weight_kg>=16000&&r.weight_kg<24000).length;
+  const low =rows.filter(r=>r.weight_kg<16000).length;
+  return {total, teu, sumKg, avgKg:sumKg/total, high, mid, low};
+}
+function groupData(rows, groupBy) {
+  const map=new Map();
+  for (const r of rows) {
+    const key = groupBy==='vvd_pol_pod' ? `${r.vessel}|||${r.vvd}|||${r.pol}|||${r.pod}`
+              : groupBy==='vessel_vvd'  ? `${r.vessel}|||${r.vvd}`
+              :                           `${r.pol}|||${r.pod}`;
+    if(!map.has(key))map.set(key,[]);
+    map.get(key).push(r);
+  }
+  return [...map.values()].map(rows=>{
+    const full = rows.filter(r=>r.status!=='E');
+    const emp  = rows.filter(r=>r.status==='E');
+    return {
+      vessel:rows[0].vessel, vvd:rows[0].vvd, pol:rows[0].pol, pod:rows[0].pod,
+      // 실화물(F)만 중량 통계
+      s20:  calcStats(full.filter(r=>r.size==='20')),
+      s40:  calcStats(full.filter(r=>r.size==='40')),
+      sAll: calcStats(full),
+      // 공컨(E) 수량
+      e20:  emp.filter(r=>r.size==='20').length,
+      e40:  emp.filter(r=>r.size==='40').length,
+      eAll: emp.length,
+    };
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  SORT
+// ═══════════════════════════════════════════════
+function sortBy(col) {
+  sortState={col, dir:sortState.col===col?-sortState.dir:1};
+  applyFilters();
+}
+function sortGroups(groups) {
+  const {col,dir}=sortState;
+  return [...groups].sort((a,b)=>{
+    const va=col==='total'?a.sAll.total:col==='avgKg'?a.sAll.avgKg:(a[col]||'');
+    const vb=col==='total'?b.sAll.total:col==='avgKg'?b.sAll.avgKg:(b[col]||'');
+    return typeof va==='string'?dir*va.localeCompare(vb):dir*(va-vb);
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  SUMMARY CARDS (per-VVD averages)
+// ═══════════════════════════════════════════════
+function renderSummary(data, groups) {
+  // 실화물(F)만 중량 통계에 사용
+  const full  = data.filter(c=>c.status!=='E');
+  const empty = data.filter(c=>c.status==='E');
+  const total = full.length;
+  const teu   = full.reduce((s,c)=>s+(c.size==='40'?2:1),0);
+  const sumKg = full.reduce((s,c)=>s+c.weight_kg,0);
+  const high  = full.filter(c=>c.weight_kg>=24000).length;
+  const mid   = full.filter(c=>c.weight_kg>=16000&&c.weight_kg<24000).length;
+  const low   = full.filter(c=>c.weight_kg<16000).length;
+
+  const vvdCount = new Set(data.map(c=>c.vvd)).size || 1;
+  const pct=n=>total?(n/total*100).toFixed(1)+'%':'0%';
+
+  document.getElementById('s-van').textContent     = (total/vvdCount).toFixed(1);
+  document.getElementById('s-teu-sub').textContent = (teu/vvdCount).toFixed(1)+' TEU / 항차 (공컨 '+empty.length+'개 제외)';
+  document.getElementById('s-totalw').textContent  = total ? (sumKg/vvdCount/1000).toFixed(1) : '0';
+  document.getElementById('s-avg').textContent     = total ? (sumKg/total/1000).toFixed(2) : '0';
+  document.getElementById('s-high').textContent    = high.toLocaleString();
+  document.getElementById('s-mid').textContent     = mid.toLocaleString();
+  document.getElementById('s-low').textContent     = low.toLocaleString();
+  document.getElementById('s-high-pct').textContent = pct(high);
+  document.getElementById('s-mid-pct').textContent  = pct(mid);
+  document.getElementById('s-low-pct').textContent  = pct(low);
+}
+
+// ═══════════════════════════════════════════════
+//  TABLE
+// ═══════════════════════════════════════════════
+function thS(lbl,col){
+  const c=sortState.col===col?'sorted':'';
+  const s=sortState.col===col?(sortState.dir===1?'▲':'▼'):'⇅';
+  return `<th class="${c}" onclick="sortBy('${col}')">${lbl}<span class="sa">${s}</span></th>`;
+}
+function thN(lbl){return`<th>${lbl}</th>`}
+
+function scells(s, ec){
+  // ec = 공컨(empty) count for this row
+  const eCell = (ec != null && ec > 0)
+    ? `<td><span class="bdg" style="background:#faf5ff;color:#6b46c1;border:1px solid #d6bcfa">${ec}</span></td>`
+    : `<td class="dash" style="color:#e2e8f0">-</td>`;
+  if(!s) return eCell+`<td class="dash">-</td>`.repeat(8);
+  const avg=(s.avgKg/1000).toFixed(2), tot=(s.sumKg/1000).toFixed(1);
+  const hp=(s.high/s.total*100).toFixed(0), mp=(s.mid/s.total*100).toFixed(0), lp=(s.low/s.total*100).toFixed(0);
+  return eCell+`<td>${s.total}</td><td>${s.teu}</td><td><strong>${avg}</strong></td><td class="tw">${tot}</td>
+    <td><span class="bdg bh">${s.high}<small>(${hp}%)</small></span></td>
+    <td><span class="bdg bm">${s.mid}<small>(${mp}%)</small></span></td>
+    <td><span class="bdg bl">${s.low}<small>(${lp}%)</small></span></td>
+    <td><div class="wbar"><div class="bh2" style="width:${hp}%"></div><div class="bm2" style="width:${mp}%"></div><div class="bl2" style="width:${lp}%"></div></div></td>`;
+}
+
+function renderTable(groups, groupBy) {
+  if (!groups.length) {
+    document.getElementById('tableWrap').innerHTML='<div class="empty">조건에 맞는 데이터가 없습니다</div>';
+    return;
+  }
+  const isVVD=groupBy==='vvd_pol_pod', isVV=groupBy==='vessel_vvd';
+  const spanCount=isVVD?4:2;
+
+  const keyCols = isVVD ? `${thS('선박명','vessel')}${thS('VVD','vvd')}${thS('POL','pol')}${thS('POD','pod')}`
+                : isVV  ? `${thS('선박명','vessel')}${thS('VVD','vvd')}`
+                :          `${thS('POL','pol')}${thS('POD','pod')}`;
+  // 공컨 컬럼 포함
+  const dataCols = `${thN('구분')}${thN('공컨(E)')}${thS('FULL VAN','total')}${thN('TEU')}${thS('평균중량(t)','avgKg')}${thN('총중량(t)')}${thN('고중량<br>≥24t')}${thN('중중량<br>16~24t')}${thN('저중량<br>&lt;16t')}${thN('비율')}`;
+
+  let body='';
+  let fV=0,fT=0,fK=0,fH=0,fM=0,fL=0,fE=0;
+
+  for (const g of groups) {
+    const {s20,s40,sAll,e20,e40,eAll}=g;
+    if(sAll){fV+=sAll.total;fT+=sAll.teu;fK+=sAll.sumKg;fH+=sAll.high;fM+=sAll.mid;fL+=sAll.low;}
+    fE+=eAll;
+    let sc='';
+    if(isVVD) sc=`<td class="sc tl" rowspan="3">${g.vessel}</td><td class="sc" rowspan="3">${g.vvd}</td><td class="sc" rowspan="3">${g.pol}</td><td class="sc" rowspan="3">${g.pod}</td>`;
+    else if(isVV) sc=`<td class="sc tl" rowspan="3">${g.vessel}</td><td class="sc" rowspan="3">${g.vvd}</td>`;
+    else sc=`<td class="sc" rowspan="3">${g.pol}</td><td class="sc" rowspan="3">${g.pod}</td>`;
+
+    body+=`
+      <tr class="r20">${sc}<td><span class="szb sz20">20'</span></td>${scells(s20,e20)}</tr>
+      <tr class="r40"><td><span class="szb sz40">40'</span></td>${scells(s40,e40)}</tr>
+      <tr class="rtot"><td><span class="szb szall">합계</span></td>${scells(sAll,eAll)}</tr>`;
+  }
+
+  const n=groups.length;
+  const pct=(a,b)=>b?(a/b*100).toFixed(1)+'%':'-';
+  const foot=`<tfoot><tr>
+    <td colspan="${spanCount+1}" style="text-align:left">▸ 그룹 평균 (${n}개 그룹)</td>
+    <td style="color:#d6bcfa;font-weight:700">${(fE/n).toFixed(1)}</td>
+    <td>${(fV/n).toFixed(1)}</td>
+    <td>${(fT/n).toFixed(1)}</td>
+    <td>${fV?(fK/fV/1000).toFixed(2):'-'}</td>
+    <td>${(fK/n/1000).toFixed(1)}</td>
+    <td>${(fH/n).toFixed(1)} (${pct(fH,fV)})</td>
+    <td>${(fM/n).toFixed(1)} (${pct(fM,fV)})</td>
+    <td>${(fL/n).toFixed(1)} (${pct(fL,fV)})</td>
+    <td></td>
+  </tr></tfoot>`;
+
+  document.getElementById('tableWrap').innerHTML=`
+    <div class="table-topbar">
+      <span>${n}개 그룹 · FULL ${fV} VAN · ${fT} TEU · 공컨(E) ${fE}개</span>
+      <span style="font-size:10px;color:#a0aec0">※ 중량통계는 실화물(F)만 집계 · 하단 = 그룹당 평균</span>
+    </div>
+    <table><thead><tr>${keyCols}${dataCols}</tr></thead><tbody>${body}</tbody>${foot}</table>`;
+}
+
+// ═══════════════════════════════════════════════
+//  CSV EXPORT
+// ═══════════════════════════════════════════════
+function exportCSV() {
+  const fPOL=document.getElementById('fPOL').value.trim().toUpperCase();
+  const fPOD=document.getElementById('fPOD').value.trim().toUpperCase();
+  const fVessel=document.getElementById('fVessel').value.trim().toUpperCase();
+  const fSize=document.getElementById('fSize').value;
+  const fFrom=document.getElementById('fDateFrom').value?new Date(document.getElementById('fDateFrom').value):null;
+  const fTo=document.getElementById('fDateTo').value?new Date(document.getElementById('fDateTo').value):null;
+  if(fTo)fTo.setHours(23,59,59);
+  const groupBy=document.getElementById('groupBy').value;
+  const checkedVVDs=new Set(Object.entries(vvdState).filter(([,v])=>v.checked).map(([k])=>k));
+
+  let data=allContainers.filter(c=>checkedVVDs.has(c.vvd));
+  if(fPOL)data=data.filter(c=>c.pol.includes(fPOL));
+  if(fPOD)data=data.filter(c=>c.pod.includes(fPOD));
+  if(fVessel)data=data.filter(c=>c.vessel.toUpperCase().includes(fVessel));
+  if(fSize)data=data.filter(c=>c.size===fSize);
+  if(fFrom)data=data.filter(c=>c.date&&c.date>=fFrom);
+  if(fTo)data=data.filter(c=>c.date&&c.date<=fTo);
+
+  const groups=sortGroups(groupData(data,groupBy));
+  const rows=[['선박명','VVD','POL','POD','구분','VAN','TEU','평균중량(톤)','총중량(톤)','고중량(≥24t)','고중량%','중중량(16~24t)','중중량%','저중량(<16t)','저중량%']];
+  for(const g of groups){
+    const add=(lbl,s)=>{if(!s)return;rows.push([g.vessel,g.vvd,g.pol,g.pod,lbl,s.total,s.teu,(s.avgKg/1000).toFixed(2),(s.sumKg/1000).toFixed(1),s.high,(s.high/s.total*100).toFixed(1)+'%',s.mid,(s.mid/s.total*100).toFixed(1)+'%',s.low,(s.low/s.total*100).toFixed(1)+'%']);};
+    add("20'",g.s20); add("40'",g.s40); add('합계',g.sAll);
+  }
+  const csv='﻿'+rows.map(r=>r.map(v=>`"${v}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download=`loading_plan_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ═══════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════
+function showProg(msg){document.getElementById('progText').textContent=msg;document.getElementById('progOverlay').style.display='flex'}
+function hideProg(){document.getElementById('progOverlay').style.display='none'}
+</script>
+</body>
+</html>
